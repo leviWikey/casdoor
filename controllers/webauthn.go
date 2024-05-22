@@ -157,6 +157,7 @@ func (c *ApiController) WebAuthnSigninFinish() {
 	clientId := c.Input().Get("clientId")
 	webauthnObj, err := object.GetWebAuthnObject(c.Ctx.Request.Host)
 	if err != nil {
+		util.LogInfo(c.Ctx, "API: [%s] %s", c.Ctx.Request.RequestURI, "GetWebAuthnObject failed")
 		c.ResponseError(err.Error())
 		return
 	}
@@ -171,12 +172,14 @@ func (c *ApiController) WebAuthnSigninFinish() {
 	userId := string(sessionData.UserID)
 	user, err := object.GetUser(userId)
 	if err != nil {
+		util.LogInfo(c.Ctx, "API: [%s] %s", c.Ctx.Request.RequestURI, "GetUser failed")
 		c.ResponseError(err.Error())
 		return
 	}
 
 	_, err = webauthnObj.FinishLogin(user, sessionData, c.Ctx.Request)
 	if err != nil {
+		util.LogInfo(c.Ctx, "API: [%s] %s", c.Ctx.Request.RequestURI, "FinishLogin failed")
 		c.ResponseError(err.Error())
 		return
 	}
@@ -185,18 +188,25 @@ func (c *ApiController) WebAuthnSigninFinish() {
 
 	var application *object.Application
 
-	if clientId != "" && (responseType == ResponseTypeCode) {
+	if clientId != "" {
 		application, err = object.GetApplicationByClientId(clientId)
+		util.LogInfo(c.Ctx, "API: [%s] %s", c.Ctx.Request.RequestURI, "getting application by clientId")
 	} else {
 		application, err = object.GetApplicationByUser(user)
+		util.LogInfo(c.Ctx, "API: [%s] %s", c.Ctx.Request.RequestURI, "getting application by user")
 	}
 	if err != nil {
+		util.LogInfo(c.Ctx, "API: [%s] %s", c.Ctx.Request.RequestURI, "GetApplication failed")
 		c.ResponseError(err.Error())
 		return
 	}
 
 	var authForm form.AuthForm
 	authForm.Type = responseType
+	if responseType == ResponseTypeSaml {
+		authForm.SamlRequest = c.Input().Get("samlRequest")
+		authForm.RelayState = c.Input().Get("relayState")
+	}
 	resp := c.HandleLoggedIn(application, user, &authForm)
 	c.Data["json"] = resp
 	c.ServeJSON()

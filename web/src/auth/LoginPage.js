@@ -985,6 +985,9 @@ class LoginPage extends React.Component {
         if (values["type"] === "code") {
           finishUrl = `${Setting.ServerUrl}/api/webauthn/signin/finish?responseType=${values["type"]}&clientId=${oAuthParams.clientId}&scope=${oAuthParams.scope}&redirectUri=${oAuthParams.redirectUri}&nonce=${oAuthParams.nonce}&state=${oAuthParams.state}&codeChallenge=${oAuthParams.codeChallenge}&challengeMethod=${oAuthParams.challengeMethod}`;
         }
+        if (values["type"] === "saml") {
+          finishUrl = `${finishUrl}&clientId=${oAuthParams.clientId}&samlRequest=${encodeURIComponent(values["samlRequest"])}&relayState=${encodeURIComponent(values["relayState"])}`;
+        }
         return fetch(finishUrl, {
           method: "POST",
           credentials: "include",
@@ -1008,6 +1011,18 @@ class LoginPage extends React.Component {
               } else if (responseType === "token" || responseType === "id_token") {
                 const accessToken = res.data;
                 Setting.goToLink(`${oAuthParams.redirectUri}#${responseType}=${accessToken}?state=${oAuthParams.state}&token_type=bearer`);
+              } else if (responseType === "saml") {
+                if (res.data2.method === "POST") {
+                  this.setState({
+                    samlResponse: res.data,
+                    redirectUrl: res.data2.redirectUrl,
+                    relayState: oAuthParams.relayState,
+                  });
+                } else {
+                  const SAMLResponse = res.data;
+                  const redirectUri = res.data2.redirectUrl;
+                  Setting.goToLink(`${redirectUri}?SAMLResponse=${encodeURIComponent(SAMLResponse)}&RelayState=${oAuthParams.relayState}`);
+                }
               } else {
                 Setting.showMessage("success", i18next.t("login:Successfully logged in with WebAuthn credentials"));
                 Setting.goToLink("/");

@@ -156,6 +156,7 @@ func (c *ApiController) HandleLoggedIn(application *object.Application, user *ob
 	} else if form.Type == ResponseTypeSaml { // saml flow
 		res, redirectUrl, method, err := object.GetSamlResponse(application, user, form.SamlRequest, c.Ctx.Request.Host)
 		if err != nil {
+			util.LogInfo(c.Ctx, "API: [%s] %s", c.Ctx.Request.RequestURI, "GetSamlResponse" + err.Error())
 			c.ResponseError(err.Error(), nil)
 			return
 		}
@@ -199,6 +200,7 @@ func (c *ApiController) HandleLoggedIn(application *object.Application, user *ob
 			SessionId:   []string{c.Ctx.Input.CruSession.SessionID()},
 		})
 		if err != nil {
+			util.LogInfo(c.Ctx, "API: [%s] %s", c.Ctx.Request.RequestURI, "AddSession" + err.Error())
 			c.ResponseError(err.Error(), nil)
 			return
 		}

@@ -19,6 +19,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/beego/beego/logs"
 	"github.com/casdoor/casdoor/i18n"
 	"github.com/casdoor/casdoor/util"
 	"github.com/xorm-io/core"
@@ -699,6 +700,7 @@ func (application *Application) IsRedirectUriValid(redirectUri string) bool {
 			return true
 		}
 	}
+	logs.Info("RedirectUri: %s is not valid for uris: %s in application: ", redirectUri, redirectUris, application.Name)
 	return false
 }
 
