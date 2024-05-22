@@ -19,12 +19,21 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/casdoor/casdoor/primitives"
 	"github.com/casdoor/casdoor/form"
 	"github.com/casdoor/casdoor/object"
 	"github.com/casdoor/casdoor/util"
 	"github.com/go-webauthn/webauthn/protocol"
 	"github.com/go-webauthn/webauthn/webauthn"
 )
+
+
+
+var (
+	WIKEY_AAGUID = primitives.NewUnmodifiableByteSlice([]byte{180, 99, 125, 190, 71, 164, 168, 212, 54, 241, 198, 174, 124, 111, 45, 24}) 
+)
+
+
 
 // WebAuthnSignupBegin
 // @Title WebAuthnSignupBegin
@@ -69,6 +78,15 @@ func (c *ApiController) WebAuthnSignupBegin() {
 // @Success 200 {object} controllers.Response "The Response object"
 // @router /webauthn/signup/finish [post]
 func (c *ApiController) WebAuthnSignupFinish() {
+	parsedResponse, err := protocol.ParseCredentialCreationResponse(c.Ctx.Request)
+	if err != nil {
+		c.ResponseError(err.Error())
+		return
+	}
+	if !WIKEY_AAGUID.Equal(parsedResponse.Response.AttestationObject.AuthData.AttData.AAGUID) {
+		c.ResponseError("AAGUID is not valid")
+		return
+	}
 	webauthnObj, err := object.GetWebAuthnObject(c.Ctx.Request.Host)
 	if err != nil {
 		c.ResponseError(err.Error())
@@ -159,6 +177,17 @@ func (c *ApiController) WebAuthnSigninFinish() {
 	if err != nil {
 		util.LogInfo(c.Ctx, "API: [%s] %s", c.Ctx.Request.RequestURI, "GetWebAuthnObject failed")
 		c.ResponseError(err.Error())
+		return
+	}
+	
+	parsedResponse, err := protocol.ParseCredentialRequestResponse(c.Ctx.Request)
+	if err != nil {
+		util.LogInfo(c.Ctx, "API: [%s] %s", c.Ctx.Request.RequestURI, "ParseCredentialRequestResponse failed")
+		c.ResponseError(err.Error())
+		return
+	}
+	if !WIKEY_AAGUID.Equal(parsedResponse.Response.AuthenticatorData.AttData.AAGUID) {
+		c.ResponseError("AAGUID is not valid")
 		return
 	}
 
