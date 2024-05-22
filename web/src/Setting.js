@@ -90,11 +90,12 @@ export function getAlgorithmNames(themeData) {
 }
 
 export function getLogo(themes) {
-  if (themes.includes("dark")) {
-    return `${StaticBaseUrl}/img/casdoor-logo_1185x256_dark.png`;
-  } else {
-    return `${StaticBaseUrl}/img/casdoor-logo_1185x256.png`;
-  }
+  // if (themes.includes("dark")) {
+  //   return `${StaticBaseUrl}/img/casdoor-logo_1185x256_dark.png`;
+  // } else {
+  //   return `${StaticBaseUrl}/img/casdoor-logo_1185x256.png`;
+  // }
+  return "https://assets-global.website-files.com/66055632518763f5b68a2c87/6605c15d24d7fc23acac00f0_wikey%20logo.svg";
 }
 
 export const OtherProviderInfo = {
