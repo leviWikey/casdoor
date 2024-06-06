@@ -78,15 +78,15 @@ func (c *ApiController) WebAuthnSignupBegin() {
 // @Success 200 {object} controllers.Response "The Response object"
 // @router /webauthn/signup/finish [post]
 func (c *ApiController) WebAuthnSignupFinish() {
-	// parsedResponse, err := protocol.ParseCredentialCreationResponse(c.Ctx.Request)
-	// if err != nil {
-	// 	c.ResponseError(err.Error())
-	// 	return
-	// }
-	// if !WIKEY_AAGUID.Equal(parsedResponse.Response.AttestationObject.AuthData.AttData.AAGUID) {
-	// 	c.ResponseError("AAGUID is not valid")
-	// 	return
-	// }
+	parsedResponse, err := protocol.ParseCredentialCreationResponse(c.Ctx.Request)
+	if err != nil {
+		c.ResponseError(err.Error())
+		return
+	}
+	if !WIKEY_AAGUID.Equal(parsedResponse.Response.AttestationObject.AuthData.AttData.AAGUID) {
+		c.ResponseError("AAGUID is not valid")
+		return
+	}
 	webauthnObj, err := object.GetWebAuthnObject(c.Ctx.Request.Host)
 	if err != nil {
 		c.ResponseError(err.Error())
@@ -179,17 +179,6 @@ func (c *ApiController) WebAuthnSigninFinish() {
 		c.ResponseError(err.Error())
 		return
 	}
-	
-	// parsedResponse, err := protocol.ParseCredentialRequestResponse(c.Ctx.Request)
-	// if err != nil {
-	// 	util.LogInfo(c.Ctx, "API: [%s] %s", c.Ctx.Request.RequestURI, "ParseCredentialRequestResponse failed")
-	// 	c.ResponseError(err.Error())
-	// 	return
-	// }
-	// if !WIKEY_AAGUID.Equal(parsedResponse.Response.AuthenticatorData.AttData.AAGUID) {
-	// 	c.ResponseError("AAGUID is not valid")
-	// 	return
-	// }
 
 	sessionObj := c.GetSession("authentication")
 	sessionData, ok := sessionObj.(webauthn.SessionData)
