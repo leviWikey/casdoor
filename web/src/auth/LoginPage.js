@@ -576,79 +576,80 @@ class LoginPage extends React.Component {
       ;
     } else if (signinItem.name === "Username") {
       return (
-        <div>
-          <div dangerouslySetInnerHTML={{__html: ("<style>" + signinItem.label?.replaceAll("<style>", "").replaceAll("</style>", "") + "</style>")}} />
-          <Form.Item
-            name="username"
-            className="login-username"
-            rules={[
-              {
-                required: true,
-                message: () => {
-                  switch (this.state.loginMethod) {
-                  case "verificationCodeEmail":
-                    return i18next.t("login:Please input your Email!");
-                  case "verificationCodePhone":
-                    return i18next.t("login:Please input your Phone!");
-                  case "ldap":
-                    return i18next.t("login:Please input your LDAP username!");
-                  default:
-                    return i18next.t("login:Please input your Email or Phone!");
-                  }
+        this.state.loginMethod === "webAuthn" ? null :
+          <div>
+            <div dangerouslySetInnerHTML={{__html: ("<style>" + signinItem.label?.replaceAll("<style>", "").replaceAll("</style>", "") + "</style>")}} />
+            <Form.Item
+              name="username"
+              className="login-username"
+              rules={[
+                {
+                  required: this.state.loginMethod !== "webAuthn",
+                  message: () => {
+                    switch (this.state.loginMethod) {
+                    case "verificationCodeEmail":
+                      return i18next.t("login:Please input your Email!");
+                    case "verificationCodePhone":
+                      return i18next.t("login:Please input your Phone!");
+                    case "ldap":
+                      return i18next.t("login:Please input your LDAP username!");
+                    default:
+                      return i18next.t("login:Please input your Email or Phone!");
+                    }
+                  },
                 },
-              },
-              {
-                validator: (_, value) => {
-                  if (value === "") {
+                {
+                  validator: (_, value) => {
+                    if (value === "") {
+                      return Promise.resolve();
+                    }
+
+                    if (this.state.loginMethod === "verificationCode") {
+                      if (!Setting.isValidEmail(value) && !Setting.isValidPhone(value)) {
+                        this.setState({validEmailOrPhone: false});
+                        return Promise.reject(i18next.t("login:The input is not valid Email or phone number!"));
+                      }
+
+                      if (Setting.isValidEmail(value)) {
+                        this.setState({validEmail: true});
+                      } else {
+                        this.setState({validEmail: false});
+                      }
+                    } else if (this.state.loginMethod === "verificationCodeEmail") {
+                      if (!Setting.isValidEmail(value)) {
+                        this.setState({validEmail: false});
+                        this.setState({validEmailOrPhone: false});
+                        return Promise.reject(i18next.t("login:The input is not valid Email!"));
+                      } else {
+                        this.setState({validEmail: true});
+                      }
+                    } else if (this.state.loginMethod === "verificationCodePhone") {
+                      if (!Setting.isValidPhone(value)) {
+                        this.setState({validEmailOrPhone: false});
+                        return Promise.reject(i18next.t("login:The input is not valid phone number!"));
+                      }
+                    }
+
+                    this.setState({validEmailOrPhone: true});
                     return Promise.resolve();
-                  }
-
-                  if (this.state.loginMethod === "verificationCode") {
-                    if (!Setting.isValidEmail(value) && !Setting.isValidPhone(value)) {
-                      this.setState({validEmailOrPhone: false});
-                      return Promise.reject(i18next.t("login:The input is not valid Email or phone number!"));
-                    }
-
-                    if (Setting.isValidEmail(value)) {
-                      this.setState({validEmail: true});
-                    } else {
-                      this.setState({validEmail: false});
-                    }
-                  } else if (this.state.loginMethod === "verificationCodeEmail") {
-                    if (!Setting.isValidEmail(value)) {
-                      this.setState({validEmail: false});
-                      this.setState({validEmailOrPhone: false});
-                      return Promise.reject(i18next.t("login:The input is not valid Email!"));
-                    } else {
-                      this.setState({validEmail: true});
-                    }
-                  } else if (this.state.loginMethod === "verificationCodePhone") {
-                    if (!Setting.isValidPhone(value)) {
-                      this.setState({validEmailOrPhone: false});
-                      return Promise.reject(i18next.t("login:The input is not valid phone number!"));
-                    }
-                  }
-
-                  this.setState({validEmailOrPhone: true});
-                  return Promise.resolve();
+                  },
                 },
-              },
-            ]}
-          >
+              ]}
+            >
 
-            <Input
-              id="input"
-              className="login-username-input"
-              prefix={<UserOutlined className="site-form-item-icon" />}
-              placeholder={this.getPlaceholder()}
-              onChange={e => {
-                this.setState({
-                  username: e.target.value,
-                });
-              }}
-            />
-          </Form.Item>
-        </div>
+              <Input
+                id="input"
+                className="login-username-input"
+                prefix={<UserOutlined className="site-form-item-icon" />}
+                placeholder={this.getPlaceholder()}
+                onChange={e => {
+                  this.setState({
+                    username: e.target.value,
+                  });
+                }}
+              />
+            </Form.Item>
+          </div>
       );
     } else if (signinItem.name === "Password") {
       return (
@@ -659,19 +660,20 @@ class LoginPage extends React.Component {
       );
     } else if (signinItem.name === "Forgot password?") {
       return (
-        <div>
-          <div dangerouslySetInnerHTML={{__html: ("<style>" + signinItem.label?.replaceAll("<style>", "").replaceAll("</style>", "") + "</style>")}} />
-          <div className="login-forget-password">
-            <Form.Item name="autoSignin" valuePropName="checked" noStyle>
-              <Checkbox style={{float: "left"}}>
-                {i18next.t("login:Auto sign in")}
-              </Checkbox>
-            </Form.Item>
-            {
-              signinItem.visible ? Setting.renderForgetLink(application, i18next.t("login:Forgot password?")) : null
-            }
+        this.state.loginMethod === "webAuthn" ? null :
+          <div>
+            <div dangerouslySetInnerHTML={{__html: ("<style>" + signinItem.label?.replaceAll("<style>", "").replaceAll("</style>", "") + "</style>")}} />
+            <div className="login-forget-password">
+              <Form.Item name="autoSignin" valuePropName="checked" noStyle>
+                <Checkbox style={{float: "left"}}>
+                  {i18next.t("login:Auto sign in")}
+                </Checkbox>
+              </Form.Item>
+              {
+                signinItem.visible ? Setting.renderForgetLink(application, i18next.t("login:Forgot password?")) : null
+              }
+            </div>
           </div>
-        </div>
       );
     } else if (signinItem.name === "Agreement") {
       return AgreementModal.isAgreementRequired(application) ? AgreementModal.renderAgreementFormItem(application, true, {}, this) : null;
@@ -967,7 +969,7 @@ class LoginPage extends React.Component {
         }
 
         credentialRequestOptions.publicKey.challenge = UserWebauthnBackend.webAuthnBufferDecode(credentialRequestOptions.publicKey.challenge);
-        credentialRequestOptions.publicKey.allowCredentials.forEach(function(listItem) {
+        credentialRequestOptions.publicKey.allowCredentials?.forEach(function(listItem) {
           listItem.id = UserWebauthnBackend.webAuthnBufferDecode(listItem.id);
         });
 

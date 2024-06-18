@@ -19,21 +19,17 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/casdoor/casdoor/primitives"
 	"github.com/casdoor/casdoor/form"
 	"github.com/casdoor/casdoor/object"
+	"github.com/casdoor/casdoor/primitives"
 	"github.com/casdoor/casdoor/util"
 	"github.com/go-webauthn/webauthn/protocol"
 	"github.com/go-webauthn/webauthn/webauthn"
 )
 
-
-
 var (
-	WIKEY_AAGUID = primitives.NewUnmodifiableByteSlice([]byte{180, 99, 125, 190, 71, 164, 168, 212, 54, 241, 198, 174, 124, 111, 45, 24}) 
+	WIKEY_AAGUID = primitives.NewImmutableByteSlice([]byte{180, 99, 125, 190, 71, 164, 168, 212, 54, 241, 198, 174, 124, 111, 45, 24})
 )
-
-
 
 // WebAuthnSignupBegin
 // @Title WebAuthnSignupBegin
@@ -108,6 +104,8 @@ func (c *ApiController) WebAuthnSignupFinish() {
 
 	credential, err := webauthnObj.FinishRegistration(user, sessionData, c.Ctx.Request)
 	if err != nil {
+		errr := err.(*protocol.Error)
+		fmt.Println(errr.DevInfo)
 		c.ResponseError(err.Error())
 		return
 	}
@@ -143,18 +141,20 @@ func (c *ApiController) WebAuthnSigninBegin() {
 		c.ResponseError(err.Error())
 		return
 	}
-
+	var options *protocol.CredentialAssertion
+	var sessionData *webauthn.SessionData
+	var sessionErr error
 	if user == nil {
-		c.ResponseError(fmt.Sprintf(c.T("general:The user: %s doesn't exist"), util.GetId(userOwner, userName)))
-		return
+		options, sessionData, sessionErr = webauthnObj.BeginDiscoverableLogin()
 	}
-	if len(user.WebauthnCredentials) == 0 {
-		c.ResponseError(c.T("webauthn:Found no credentials for this user"))
-		return
+	if user != nil {
+		if len(user.WebauthnCredentials) == 0 {
+			c.ResponseError(c.T("webauthn:Found no credentials for this user"))
+			return
+		}
+		options, sessionData, sessionErr = webauthnObj.BeginLogin(user)
 	}
-
-	options, sessionData, err := webauthnObj.BeginLogin(user)
-	if err != nil {
+	if sessionErr != nil {
 		c.ResponseError(err.Error())
 		return
 	}
@@ -187,15 +187,37 @@ func (c *ApiController) WebAuthnSigninFinish() {
 		return
 	}
 	c.Ctx.Request.Body = io.NopCloser(bytes.NewBuffer(c.Ctx.Input.RequestBody))
-	userId := string(sessionData.UserID)
-	user, err := object.GetUser(userId)
-	if err != nil {
-		util.LogInfo(c.Ctx, "API: [%s] %s", c.Ctx.Request.RequestURI, "GetUser failed")
-		c.ResponseError(err.Error())
-		return
+	var userId string
+	var user *object.User = nil
+	if len(sessionData.UserID) == 0 {
+		_, err = webauthnObj.FinishDiscoverableLogin(
+			func(rawID, userHandle []byte) (userr webauthn.User, errr error) {
+				userId = string(userHandle)
+				userr, errr = object.GetUser(userId)
+				if errr != nil {
+					util.LogInfo(c.Ctx, "API: [%s] %s", c.Ctx.Request.RequestURI, "GetUser failed")
+					return nil, err
+				}
+				user = userr.(*object.User)
+				if user == nil {
+					util.LogInfo(c.Ctx, "API: [%s] %s", c.Ctx.Request.RequestURI, "user is nil")
+					return nil, fmt.Errorf("user is nil")
+				}
+				return user, err
+			}, 
+			sessionData, 
+			c.Ctx.Request,
+		)
+	} else {
+		userId = string(sessionData.UserID)
+		user, err = object.GetUser(userId)
+		if err != nil {
+			util.LogInfo(c.Ctx, "API: [%s] %s", c.Ctx.Request.RequestURI, "GetUser failed")
+			c.ResponseError(err.Error())
+			return
+		}
+		_, err = webauthnObj.FinishLogin(user, sessionData, c.Ctx.Request)
 	}
-
-	_, err = webauthnObj.FinishLogin(user, sessionData, c.Ctx.Request)
 	if err != nil {
 		util.LogInfo(c.Ctx, "API: [%s] %s", c.Ctx.Request.RequestURI, "FinishLogin failed")
 		c.ResponseError(err.Error())
