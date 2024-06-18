@@ -42,7 +42,7 @@ class WebAuthnCredentialTable extends React.Component {
     const columns = [
       {
         title: i18next.t("general:Name"),
-        dataIndex: "ID",
+        dataIndex: "id",
         key: "ID",
       },
       {
