@@ -49,9 +49,9 @@ class ApplicationListPage extends BaseListPage {
       ],
       SigninMethods: [
         {name: "Password", displayName: "Password", rule: "All"},
-        {name: "Verification code", displayName: "Verification code", rule: "All"},
+        // {name: "Verification code", displayName: "Verification code", rule: "All"},
         {name: "WebAuthn", displayName: "WebAuthn", rule: "None"},
-        {name: "Face ID", displayName: "Face ID", rule: "None"},
+        // {name: "Face ID", displayName: "Face ID", rule: "None"},
       ],
       signupItems: [
         {name: "ID", visible: false, required: true, rule: "Random"},
