@@ -116,6 +116,13 @@ func (c *ApiController) Signup() {
 		return
 	}
 
+	clientIp := util.GetClientIpFromRequest(c.Ctx.Request)
+	err = object.CheckEntryIp(clientIp, nil, application, organization, c.GetAcceptLanguage())
+	if err != nil {
+		c.ResponseError(err.Error())
+		return
+	}
+
 	msg := object.CheckUserSignup(application, organization, &authForm, c.GetAcceptLanguage())
 	if msg != "" {
 		c.ResponseError(msg)
@@ -169,7 +176,11 @@ func (c *ApiController) Signup() {
 
 	username := authForm.Username
 	if !application.IsSignupItemVisible("Username") {
-		username = id
+		if organization.UseEmailAsUsername && application.IsSignupItemVisible("Email") {
+			username = authForm.Email
+		} else {
+			username = id
+		}
 	}
 
 	initScore, err := organization.GetInitScore()
@@ -196,6 +207,10 @@ func (c *ApiController) Signup() {
 		Type:              userType,
 		Password:          authForm.Password,
 		DisplayName:       authForm.Name,
+		Gender:            authForm.Gender,
+		Bio:               authForm.Bio,
+		Tag:               authForm.Tag,
+		Education:         authForm.Education,
 		Avatar:            organization.DefaultAvatar,
 		Email:             authForm.Email,
 		Phone:             authForm.Phone,
@@ -228,6 +243,10 @@ func (c *ApiController) Signup() {
 			user.FirstName = authForm.FirstName
 			user.LastName = authForm.LastName
 		}
+	}
+
+	if invitation != nil && invitation.SignupGroup != "" {
+		user.Groups = []string{invitation.SignupGroup}
 	}
 
 	affected, err := object.AddUser(user)

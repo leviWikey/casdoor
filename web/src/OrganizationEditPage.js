@@ -19,6 +19,7 @@ import * as ApplicationBackend from "./backend/ApplicationBackend";
 import * as LdapBackend from "./backend/LdapBackend";
 import * as Setting from "./Setting";
 import * as Conf from "./Conf";
+import * as Obfuscator from "./auth/Obfuscator";
 import i18next from "i18next";
 import {LinkOutlined} from "@ant-design/icons";
 import LdapTable from "./table/LdapTable";
@@ -107,6 +108,22 @@ class OrganizationEditPage extends React.Component {
     value = this.parseOrganizationField(key, value);
     const organization = this.state.organization;
     organization[key] = value;
+    this.setState({
+      organization: organization,
+    });
+  }
+
+  updatePasswordObfuscator(key, value) {
+    const organization = this.state.organization;
+    if (organization.passwordObfuscatorType === "") {
+      organization.passwordObfuscatorType = "Plain";
+    }
+    if (key === "type") {
+      organization.passwordObfuscatorType = value;
+      organization.passwordObfuscatorKey = Obfuscator.getRandomKeyForObfuscator(value);
+    } else if (key === "key") {
+      organization.passwordObfuscatorKey = value;
+    }
     this.setState({
       organization: organization,
     });
@@ -296,6 +313,34 @@ class OrganizationEditPage extends React.Component {
         </Row>
         <Row style={{marginTop: "20px"}} >
           <Col style={{marginTop: "5px"}} span={(Setting.isMobile()) ? 22 : 2}>
+            {Setting.getLabel(i18next.t("general:Password obfuscator"), i18next.t("general:Password obfuscator - Tooltip"))} :
+          </Col>
+          <Col span={22} >
+            <Select virtual={false} style={{width: "100%"}}
+              value={this.state.organization.passwordObfuscatorType}
+              onChange={(value => {this.updatePasswordObfuscator("type", value);})}>
+              {
+                [
+                  {id: "Plain", name: "Plain"},
+                  {id: "AES", name: "AES"},
+                  {id: "DES", name: "DES"},
+                ].map((obfuscatorType, index) => <Option key={index} value={obfuscatorType.id}>{obfuscatorType.name}</Option>)
+              }
+            </Select>
+          </Col>
+        </Row>
+        {
+          (this.state.organization.passwordObfuscatorType === "Plain" || this.state.organization.passwordObfuscatorType === "") ? null : (<Row style={{marginTop: "20px"}} >
+            <Col style={{marginTop: "5px"}} span={(Setting.isMobile()) ? 22 : 2}>
+              {Setting.getLabel(i18next.t("general:Password obf key"), i18next.t("general:Password obf key - Tooltip"))} :
+            </Col>
+            <Col span={22} >
+              <Input value={this.state.organization.passwordObfuscatorKey} onChange={(e) => {this.updatePasswordObfuscator("key", e.target.value);}} />
+            </Col>
+          </Row>)
+        }
+        <Row style={{marginTop: "20px"}} >
+          <Col style={{marginTop: "5px"}} span={(Setting.isMobile()) ? 22 : 2}>
             {Setting.getLabel(i18next.t("general:Supported country codes"), i18next.t("general:Supported country codes - Tooltip"))} :
           </Col>
           <Col span={22} >
@@ -305,6 +350,7 @@ class OrganizationEditPage extends React.Component {
               }}
               filterOption={(input, option) => (option?.text ?? "").toLowerCase().includes(input.toLowerCase())}
             >
+              {Setting.getCountryCodeOption({name: i18next.t("organization:All"), code: "All", phone: 0})}
               {
                 Setting.getCountryCodeData().map((country) => Setting.getCountryCodeOption(country))
               }
@@ -360,7 +406,7 @@ class OrganizationEditPage extends React.Component {
           </Col>
           <Col span={22} >
             <Select virtual={false} style={{width: "100%"}} value={this.state.organization.defaultApplication} onChange={(value => {this.updateOrganizationField("defaultApplication", value);})}
-              options={this.state.applications?.map((item) => Setting.getOption(item.name, item.name))
+              options={this.state.applications?.map((item) => Setting.getOption(Setting.getApplicationDisplayName(item.name), item.name))
               } />
           </Col>
         </Row>
@@ -407,6 +453,16 @@ class OrganizationEditPage extends React.Component {
           </Col>
         </Row>
         <Row style={{marginTop: "20px"}} >
+          <Col style={{marginTop: "5px"}} span={(Setting.isMobile()) ? 22 : 2}>
+            {Setting.getLabel(i18next.t("general:IP whitelist"), i18next.t("general:IP whitelist - Tooltip"))} :
+          </Col>
+          <Col span={22} >
+            <Input value={this.state.organization.ipWhitelist} onChange={e => {
+              this.updateOrganizationField("ipWhitelist", e.target.value);
+            }} />
+          </Col>
+        </Row>
+        <Row style={{marginTop: "20px"}} >
           <Col style={{marginTop: "5px"}} span={(Setting.isMobile()) ? 19 : 2}>
             {Setting.getLabel(i18next.t("organization:Init score"), i18next.t("organization:Init score - Tooltip"))} :
           </Col>
@@ -433,6 +489,26 @@ class OrganizationEditPage extends React.Component {
           <Col span={1} >
             <Switch checked={this.state.organization.isProfilePublic} onChange={checked => {
               this.updateOrganizationField("isProfilePublic", checked);
+            }} />
+          </Col>
+        </Row>
+        <Row style={{marginTop: "20px"}} >
+          <Col style={{marginTop: "5px"}} span={(Setting.isMobile()) ? 19 : 2}>
+            {Setting.getLabel(i18next.t("organization:Use Email as username"), i18next.t("organization:Use Email as username - Tooltip"))} :
+          </Col>
+          <Col span={1} >
+            <Switch checked={this.state.organization.useEmailAsUsername} onChange={checked => {
+              this.updateOrganizationField("useEmailAsUsername", checked);
+            }} />
+          </Col>
+        </Row>
+        <Row style={{marginTop: "20px"}} >
+          <Col style={{marginTop: "5px"}} span={(Setting.isMobile()) ? 19 : 2}>
+            {Setting.getLabel(i18next.t("general:Enable tour"), i18next.t("general:Enable tour - Tooltip"))} :
+          </Col>
+          <Col span={1} >
+            <Switch checked={this.state.organization.enableTour} onChange={checked => {
+              this.updateOrganizationField("enableTour", checked);
             }} />
           </Col>
         </Row>
@@ -507,6 +583,12 @@ class OrganizationEditPage extends React.Component {
   submitOrganizationEdit(exitAfterSave) {
     const organization = Setting.deepCopy(this.state.organization);
     organization.accountItems = organization.accountItems?.filter(accountItem => accountItem.name !== "Please select an account item");
+
+    const passwordObfuscatorErrorMessage = Obfuscator.checkPasswordObfuscator(organization.passwordObfuscatorType, organization.passwordObfuscatorKey);
+    if (passwordObfuscatorErrorMessage.length > 0) {
+      Setting.showMessage("error", passwordObfuscatorErrorMessage);
+      return;
+    }
 
     OrganizationBackend.updateOrganization(this.state.organization.owner, this.state.organizationName, organization)
       .then((res) => {

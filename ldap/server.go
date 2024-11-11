@@ -21,7 +21,7 @@ import (
 
 	"github.com/casdoor/casdoor/conf"
 	"github.com/casdoor/casdoor/object"
-	ldap "github.com/forestmgy/ldapserver"
+	ldap "github.com/casdoor/ldapserver"
 	"github.com/lor00x/goldap/message"
 )
 
@@ -59,7 +59,15 @@ func handleBind(w ldap.ResponseWriter, m *ldap.Message) {
 		}
 
 		bindPassword := string(r.AuthenticationSimple())
-		bindUser, err := object.CheckUserPassword(bindOrg, bindUsername, bindPassword, "en")
+
+		enableCaptcha := false
+		isSigninViaLdap := false
+		isPasswordWithLdapEnabled := false
+		if bindPassword != "" {
+			isPasswordWithLdapEnabled = true
+		}
+
+		bindUser, err := object.CheckUserPassword(bindOrg, bindUsername, bindPassword, "en", enableCaptcha, isSigninViaLdap, isPasswordWithLdapEnabled)
 		if err != nil {
 			log.Printf("Bind failed User=%s, Pass=%#v, ErrMsg=%s", string(r.Name()), r.Authentication(), err)
 			res.SetResultCode(ldap.LDAPResultInvalidCredentials)
@@ -122,6 +130,9 @@ func handleSearch(w ldap.ResponseWriter, m *ldap.Message) {
 		e.AddAttribute("homeDirectory", message.AttributeValue("/home/"+user.Name))
 		e.AddAttribute("cn", message.AttributeValue(user.Name))
 		e.AddAttribute("uid", message.AttributeValue(user.Id))
+		for _, group := range user.Groups {
+			e.AddAttribute(ldapMemberOfAttr, message.AttributeValue(group))
+		}
 		attrs := r.Attributes()
 		for _, attr := range attrs {
 			if string(attr) == "*" {

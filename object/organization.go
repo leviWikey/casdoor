@@ -56,10 +56,12 @@ type Organization struct {
 	WebsiteUrl             string     `xorm:"varchar(100)" json:"websiteUrl"`
 	Logo                   string     `xorm:"varchar(200)" json:"logo"`
 	LogoDark               string     `xorm:"varchar(200)" json:"logoDark"`
-	Favicon                string     `xorm:"varchar(100)" json:"favicon"`
+	Favicon                string     `xorm:"varchar(200)" json:"favicon"`
 	PasswordType           string     `xorm:"varchar(100)" json:"passwordType"`
 	PasswordSalt           string     `xorm:"varchar(100)" json:"passwordSalt"`
 	PasswordOptions        []string   `xorm:"varchar(100)" json:"passwordOptions"`
+	PasswordObfuscatorType string     `xorm:"varchar(100)" json:"passwordObfuscatorType"`
+	PasswordObfuscatorKey  string     `xorm:"varchar(100)" json:"passwordObfuscatorKey"`
 	CountryCodes           []string   `xorm:"varchar(200)"  json:"countryCodes"`
 	DefaultAvatar          string     `xorm:"varchar(200)" json:"defaultAvatar"`
 	DefaultApplication     string     `xorm:"varchar(100)" json:"defaultApplication"`
@@ -69,17 +71,21 @@ type Organization struct {
 	MasterPassword         string     `xorm:"varchar(100)" json:"masterPassword"`
 	DefaultPassword        string     `xorm:"varchar(100)" json:"defaultPassword"`
 	MasterVerificationCode string     `xorm:"varchar(100)" json:"masterVerificationCode"`
+	IpWhitelist            string     `xorm:"varchar(200)" json:"ipWhitelist"`
 	InitScore              int        `json:"initScore"`
 	EnableSoftDeletion     bool       `json:"enableSoftDeletion"`
 	IsProfilePublic        bool       `json:"isProfilePublic"`
+	UseEmailAsUsername     bool       `json:"useEmailAsUsername"`
+	EnableTour             bool       `json:"enableTour"`
+	IpRestriction          string     `json:"ipRestriction"`
 
 	MfaItems     []*MfaItem     `xorm:"varchar(300)" json:"mfaItems"`
 	AccountItems []*AccountItem `xorm:"varchar(5000)" json:"accountItems"`
 }
 
-func GetOrganizationCount(owner, field, value string) (int64, error) {
+func GetOrganizationCount(owner, name, field, value string) (int64, error) {
 	session := GetSession(owner, -1, -1, field, value, "", "")
-	return session.Count(&Organization{})
+	return session.Count(&Organization{Name: name})
 }
 
 func GetOrganizations(owner string, name ...string) ([]*Organization, error) {
@@ -317,6 +323,7 @@ func GetDefaultApplication(id string) (*Application, error) {
 		if defaultApplication == nil {
 			return nil, fmt.Errorf("The default application: %s does not exist", organization.DefaultApplication)
 		} else {
+			defaultApplication.Organization = organization.Name
 			return defaultApplication, nil
 		}
 	}
@@ -350,6 +357,11 @@ func GetDefaultApplication(id string) (*Application, error) {
 	}
 
 	err = extendApplicationWithSigninItems(defaultApplication)
+	if err != nil {
+		return nil, err
+	}
+
+	err = extendApplicationWithSigninMethods(defaultApplication)
 	if err != nil {
 		return nil, err
 	}

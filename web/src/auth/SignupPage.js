@@ -13,7 +13,7 @@
 // limitations under the License.
 
 import React from "react";
-import {Button, Form, Input, Radio, Result, Row} from "antd";
+import {Button, Form, Input, Radio, Result, Row, Select, message} from "antd";
 import * as Setting from "../Setting";
 import * as AuthBackend from "./AuthBackend";
 import * as ProviderButton from "./ProviderButton";
@@ -48,6 +48,38 @@ const formItemLayout = {
       span: 16,
     },
   },
+};
+
+const renderFormItem = (signupItem) => {
+  const commonProps = {
+    name: signupItem.name.toLowerCase(),
+    label: signupItem.label || signupItem.name,
+    rules: [
+      {
+        required: signupItem.required,
+        message: i18next.t(`signup:Please input your ${signupItem.label || signupItem.name}!`),
+      },
+    ],
+  };
+
+  if (!signupItem.type || signupItem.type === "Input") {
+    return (
+      <Form.Item {...commonProps}>
+        <Input placeholder={signupItem.placeholder} />
+      </Form.Item>
+    );
+  } else if (signupItem.type === "Single Choice" || signupItem.type === "Multiple Choices") {
+    return (
+      <Form.Item {...commonProps}>
+        <Select
+          mode={signupItem.type === "Multiple Choices" ? "multiple" : "single"}
+          placeholder={signupItem.placeholder}
+          showSearch={false}
+          options={signupItem.options.map(option => ({label: option, value: option}))}
+        />
+      </Form.Item>
+    );
+  }
 };
 
 export const tailFormItemLayout = {
@@ -198,6 +230,22 @@ class SignupPage extends React.Component {
   onFinish(values) {
     const application = this.getApplicationObj();
 
+    if (Array.isArray(values.gender)) {
+      values.gender = values.gender.join(", ");
+    }
+
+    if (Array.isArray(values.bio)) {
+      values.bio = values.bio.join(", ");
+    }
+
+    if (Array.isArray(values.tag)) {
+      values.tag = values.tag.join(", ");
+    }
+
+    if (Array.isArray(values.education)) {
+      values.education = values.education.join(", ");
+    }
+
     const params = new URLSearchParams(window.location.search);
     values.plan = params.get("plan");
     values.pricing = params.get("pricing");
@@ -238,6 +286,7 @@ class SignupPage extends React.Component {
   }
 
   renderFormItem(application, signupItem) {
+    const validItems = ["Gender", "Bio", "Tag", "Education"];
     if (!signupItem.visible) {
       return null;
     }
@@ -366,7 +415,9 @@ class SignupPage extends React.Component {
             },
           ]}
         >
-          <RegionSelect className="signup-region-select" onChange={(value) => {this.setState({region: value});}} />
+          <RegionSelect className="signup-region-select" onChange={(value) => {
+            this.setState({region: value});
+          }} />
         </Form.Item>
       );
     } else if (signupItem.name === "Email" || signupItem.name === "Phone" || signupItem.name === "Email or Phone" || signupItem.name === "Phone or Email") {
@@ -653,11 +704,25 @@ class SignupPage extends React.Component {
       }
       return (
 
-        application.providers.filter(providerItem => this.isProviderVisible(providerItem)).map(providerItem => {
-          return ProviderButton.renderProviderLogo(providerItem.provider, application, null, null, signupItem.rule, this.props.location);
-        })
+        application.providers.filter(providerItem => this.isProviderVisible(providerItem)).map((providerItem, id) => {
+          return (
+            <span key={id} onClick={(e) => {
+              const agreementChecked = this.form.current.getFieldValue("agreement");
 
+              if (agreementChecked !== undefined && typeof agreementChecked === "boolean" && !agreementChecked) {
+                e.preventDefault();
+                message.error(i18next.t("signup:Please accept the agreement!"));
+              }
+            }}>
+              {
+                ProviderButton.renderProviderLogo(providerItem.provider, application, null, null, signupItem.rule, this.props.location)
+              }
+            </span>
+          );
+        })
       );
+    } else if (validItems.includes(signupItem.name)) {
+      return renderFormItem(signupItem);
     }
   }
 
@@ -777,7 +842,7 @@ class SignupPage extends React.Component {
         <div className="login-content" style={{margin: this.props.preview ?? this.parseOffset(application.formOffset)}}>
           {Setting.inIframe() || Setting.isMobile() ? null : <div dangerouslySetInnerHTML={{__html: application.formCss}} />}
           {Setting.inIframe() || !Setting.isMobile() ? null : <div dangerouslySetInnerHTML={{__html: application.formCssMobile}} />}
-          <div className="login-panel" >
+          <div className={Setting.isDarkTheme(this.props.themeAlgorithm) ? "login-panel-dark" : "login-panel"}>
             <div className="side-image" style={{display: application.formOffset !== 4 ? "none" : null}}>
               <div dangerouslySetInnerHTML={{__html: application.formSideHtml}} />
             </div>

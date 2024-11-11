@@ -55,6 +55,13 @@ func tokenToResponse(token *object.Token) *Response {
 func (c *ApiController) HandleLoggedIn(application *object.Application, user *object.User, form *form.AuthForm) (resp *Response) {
 	userId := user.GetId()
 
+	clientIp := util.GetClientIpFromRequest(c.Ctx.Request)
+	err := object.CheckEntryIp(clientIp, user, application, application.OrganizationObj, c.GetAcceptLanguage())
+	if err != nil {
+		c.ResponseError(err.Error())
+		return
+	}
+
 	allowed, err := object.CheckLoginPermission(userId, application)
 	if err != nil {
 		c.ResponseError(err.Error(), nil)
@@ -257,6 +264,9 @@ func (c *ApiController) GetApplicationLogin() {
 			return
 		}
 	}
+
+	clientIp := util.GetClientIpFromRequest(c.Ctx.Request)
+	object.CheckEntryIp(clientIp, nil, application, nil, c.GetAcceptLanguage())
 
 	application = object.GetMaskedApplication(application, "")
 	if msg != "" {
@@ -465,6 +475,15 @@ func (c *ApiController) Login() {
 			}
 
 			password := authForm.Password
+
+			if application.OrganizationObj != nil {
+				password, err = util.GetUnobfuscatedPassword(application.OrganizationObj.PasswordObfuscatorType, application.OrganizationObj.PasswordObfuscatorKey, authForm.Password)
+				if err != nil {
+					c.ResponseError(err.Error())
+					return
+				}
+			}
+
 			isSigninViaLdap := authForm.SigninMethod == "LDAP"
 			var isPasswordWithLdapEnabled bool
 			if authForm.SigninMethod == "Password" {
@@ -667,6 +686,11 @@ func (c *ApiController) Login() {
 						return
 					}
 
+					if application.IsSignupItemRequired("Invitation code") {
+						c.ResponseError(c.T("check:Invitation code cannot be blank"))
+						return
+					}
+
 					// Handle username conflicts
 					var tmpUser *object.User
 					tmpUser, err = object.GetUser(util.GetId(application.Organization, userInfo.Username))
@@ -832,6 +856,7 @@ func (c *ApiController) Login() {
 		}
 
 		if authForm.Passcode != "" {
+			user.CountryCode = user.GetCountryCode(user.CountryCode)
 			mfaUtil := object.GetMfaUtil(authForm.MfaType, user.GetPreferredMfaProps(false))
 			if mfaUtil == nil {
 				c.ResponseError("Invalid multi-factor authentication type")

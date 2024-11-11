@@ -16,6 +16,7 @@ import React, {Component, Suspense, lazy} from "react";
 import "./App.less";
 import {Helmet} from "react-helmet";
 import * as Setting from "./Setting";
+import {setOrgIsTourVisible, setTourLogo} from "./TourConfig";
 import {StyleProvider, legacyLogicalPropertiesTransformer} from "@ant-design/cssinjs";
 import {GithubOutlined, InfoCircleFilled, ShareAltOutlined} from "@ant-design/icons";
 import {Alert, Button, ConfigProvider, Drawer, FloatButton, Layout, Result, Tooltip} from "antd";
@@ -247,6 +248,8 @@ class App extends Component {
 
           this.setLanguage(account);
           this.setTheme(Setting.getThemeData(account.organization), Conf.InitThemeAlgorithm);
+          setTourLogo(account.organization.logo);
+          setOrgIsTourVisible(account.organization.enableTour);
         } else {
           if (res.data !== "Please login first") {
             Setting.showMessage("error", `${i18next.t("application:Failed to sign in")}: ${res.msg}`);
@@ -341,7 +344,8 @@ class App extends Component {
         window.location.pathname.startsWith("/cas") ||
         window.location.pathname.startsWith("/select-plan") ||
         window.location.pathname.startsWith("/buy-plan") ||
-        window.location.pathname.startsWith("/qrcode") ;
+        window.location.pathname.startsWith("/qrcode") ||
+        window.location.pathname.startsWith("/captcha");
   }
 
   onClick = ({key}) => {
@@ -358,7 +362,11 @@ class App extends Component {
     if (this.isDoorPages()) {
       return (
         <ConfigProvider theme={{
-          algorithm: Setting.getAlgorithm(["default"]),
+          token: {
+            colorPrimary: this.state.themeData.colorPrimary,
+            borderRadius: this.state.themeData.borderRadius,
+          },
+          algorithm: Setting.getAlgorithm(this.state.themeAlgorithm),
         }}>
           <StyleProvider hashPriority="high" transformers={[legacyLogicalPropertiesTransformer]}>
             <Layout id="parent-area">
@@ -368,6 +376,7 @@ class App extends Component {
                     <EntryPage
                       account={this.state.account}
                       theme={this.state.themeData}
+                      themeAlgorithm={this.state.themeAlgorithm}
                       updateApplication={(application) => {
                         this.setState({
                           application: application,
@@ -442,7 +451,6 @@ class App extends Component {
                 setLogoutState={() => {
                   this.setState({
                     account: null,
-                    themeAlgorithm: ["default"],
                   });
                 }}
               />

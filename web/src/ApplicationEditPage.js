@@ -46,12 +46,18 @@ require("codemirror/mode/css/css");
 const {Option} = Select;
 
 const template = `<style>
-  .login-panel{
+  .login-panel {
     padding: 40px 70px 0 70px;
     border-radius: 10px;
     background-color: #ffffff;
     box-shadow: 0 0 30px 20px rgba(0, 0, 0, 0.20);
-}
+  }
+  .login-panel-dark {
+    padding: 40px 70px 0 70px;
+    border-radius: 10px;
+    background-color: #333333;
+    box-shadow: 0 0 30px 20px rgba(255, 255, 255, 0.20);
+  }
 </style>`;
 
 const previewGrid = Setting.isMobile() ? 22 : 11;
@@ -116,7 +122,6 @@ class ApplicationEditPage extends React.Component {
   UNSAFE_componentWillMount() {
     this.getApplication();
     this.getOrganizations();
-    this.getProviders();
   }
 
   getApplication() {
@@ -145,7 +150,9 @@ class ApplicationEditPage extends React.Component {
           application: application,
         });
 
-        this.getCerts(application.organization);
+        this.getProviders(application);
+
+        this.getCerts(application);
 
         this.getSamlMetadata(application.enableSamlPostBinding);
       });
@@ -166,7 +173,11 @@ class ApplicationEditPage extends React.Component {
       });
   }
 
-  getCerts(owner) {
+  getCerts(application) {
+    let owner = application.organization;
+    if (application.isShared) {
+      owner = this.props.owner;
+    }
     CertBackend.getCerts(owner)
       .then((res) => {
         this.setState({
@@ -175,8 +186,12 @@ class ApplicationEditPage extends React.Component {
       });
   }
 
-  getProviders() {
-    ProviderBackend.getProviders(this.state.owner)
+  getProviders(application) {
+    let owner = application.organization;
+    if (application.isShared) {
+      owner = this.props.account.owner;
+    }
+    ProviderBackend.getProviders(owner)
       .then((res) => {
         if (res.status === "ok") {
           this.setState({
@@ -260,6 +275,16 @@ class ApplicationEditPage extends React.Component {
           <Col span={22} >
             <Input value={this.state.application.displayName} onChange={e => {
               this.updateApplicationField("displayName", e.target.value);
+            }} />
+          </Col>
+        </Row>
+        <Row style={{marginTop: "20px"}} >
+          <Col style={{marginTop: "5px"}} span={(Setting.isMobile()) ? 22 : 2}>
+            {Setting.getLabel(i18next.t("general:Is shared"), i18next.t("general:Is shared - Tooltip"))} :
+          </Col>
+          <Col span={22} >
+            <Switch disabled={Setting.isAdminUser()} checked={this.state.application.isShared} onChange={checked => {
+              this.updateApplicationField("isShared", checked);
             }} />
           </Col>
         </Row>
@@ -384,7 +409,17 @@ class ApplicationEditPage extends React.Component {
           </Col>
           <Col span={22} >
             <Select virtual={false} style={{width: "100%"}} value={this.state.application.tokenFormat} onChange={(value => {this.updateApplicationField("tokenFormat", value);})}
-              options={["JWT", "JWT-Empty", "JWT-Custom"].map((item) => Setting.getOption(item, item))}
+              options={["JWT", "JWT-Empty", "JWT-Custom", "JWT-Standard"].map((item) => Setting.getOption(item, item))}
+            />
+          </Col>
+        </Row>
+        <Row style={{marginTop: "20px"}} >
+          <Col style={{marginTop: "5px"}} span={(Setting.isMobile()) ? 22 : 2}>
+            {Setting.getLabel(i18next.t("application:Token signing method"), i18next.t("application:Token signing method - Tooltip"))} :
+          </Col>
+          <Col span={22} >
+            <Select virtual={false} style={{width: "100%"}} value={this.state.application.tokenSigningMethod === "" ? "RS256" : this.state.application.tokenSigningMethod} onChange={(value => {this.updateApplicationField("tokenSigningMethod", value);})}
+              options={["RS256", "RS512", "ES256", "ES512", "ES384"].map((item) => Setting.getOption(item, item))}
             />
           </Col>
         </Row>
@@ -565,6 +600,16 @@ class ApplicationEditPage extends React.Component {
         </Row>
         <Row style={{marginTop: "20px"}} >
           <Col style={{marginTop: "5px"}} span={(Setting.isMobile()) ? 22 : 2}>
+            {Setting.getLabel(i18next.t("general:IP whitelist"), i18next.t("general:IP whitelist - Tooltip"))} :
+          </Col>
+          <Col span={22} >
+            <Input placeholder = {this.state.application.organizationObj?.ipWhitelist} value={this.state.application.ipWhitelist} onChange={e => {
+              this.updateApplicationField("ipWhitelist", e.target.value);
+            }} />
+          </Col>
+        </Row>
+        <Row style={{marginTop: "20px"}} >
+          <Col style={{marginTop: "5px"}} span={(Setting.isMobile()) ? 22 : 2}>
             {Setting.getLabel(i18next.t("signup:Terms of Use"), i18next.t("signup:Terms of Use - Tooltip"))} :
           </Col>
           <Col span={22} >
@@ -671,6 +716,16 @@ class ApplicationEditPage extends React.Component {
           <Col span={1} >
             <Switch checked={this.state.application.enableSamlC14n10} onChange={checked => {
               this.updateApplicationField("enableSamlC14n10", checked);
+            }} />
+          </Col>
+        </Row>
+        <Row style={{marginTop: "20px"}}>
+          <Col style={{marginTop: "5px"}} span={(Setting.isMobile()) ? 19 : 2}>
+            {Setting.getLabel(i18next.t("application:Use Email as NameID"), i18next.t("application:Use Email as NameID - Tooltip"))} :
+          </Col>
+          <Col span={1}>
+            <Switch checked={this.state.application.useEmailAsSamlNameId} onChange={checked => {
+              this.updateApplicationField("useEmailAsSamlNameId", checked);
             }} />
           </Col>
         </Row>
@@ -938,6 +993,7 @@ class ApplicationEditPage extends React.Component {
                 <SigninTable
                   title={i18next.t("application:Signin items")}
                   table={this.state.application.signinItems}
+                  themeAlgorithm={this.state.themeAlgorithm}
                   onUpdateTable={(value) => {
                     this.updateApplicationField("signinItems", value);
                   }}
@@ -989,7 +1045,11 @@ class ApplicationEditPage extends React.Component {
       redirectUri = "\"ERROR: You must specify at least one Redirect URL in 'Redirect URLs'\"";
     }
 
-    const signInUrl = `/login/oauth/authorize?client_id=${this.state.application.clientId}&response_type=code&redirect_uri=${redirectUri}&scope=read&state=casdoor`;
+    let clientId = this.state.application.clientId;
+    if (this.state.application.isShared) {
+      clientId += `-org-${this.props.account.owner}`;
+    }
+    const signInUrl = `/login/oauth/authorize?client_id=${clientId}&response_type=code&redirect_uri=${redirectUri}&scope=read&state=casdoor`;
     const maskStyle = {position: "absolute", top: "0px", left: "0px", zIndex: 10, height: "97%", width: "100%", background: "rgba(0,0,0,0.4)"};
     if (!Setting.isPasswordEnabled(this.state.application)) {
       signUpUrl = signInUrl.replace("/login/oauth/authorize", "/signup/oauth/authorize");

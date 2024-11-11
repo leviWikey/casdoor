@@ -204,7 +204,9 @@ type User struct {
 	SigninWrongTimes    int    `json:"signinWrongTimes"`
 
 	ManagedAccounts    []ManagedAccount `xorm:"managedAccounts blob" json:"managedAccounts"`
+	MfaAccounts        []MfaAccount     `xorm:"mfaAccounts blob" json:"mfaAccounts"`
 	NeedUpdatePassword bool             `json:"needUpdatePassword"`
+	IpWhitelist        string           `xorm:"varchar(200)" json:"ipWhitelist"`
 }
 
 type Userinfo struct {
@@ -228,6 +230,12 @@ type ManagedAccount struct {
 	Username    string `xorm:"varchar(100)" json:"username"`
 	Password    string `xorm:"varchar(100)" json:"password"`
 	SigninUrl   string `xorm:"varchar(200)" json:"signinUrl"`
+}
+
+type MfaAccount struct {
+	AccountName string `xorm:"varchar(100)" json:"accountName"`
+	Issuer      string `xorm:"varchar(100)" json:"issuer"`
+	SecretKey   string `xorm:"varchar(100)" json:"secretKey"`
 }
 
 type FaceId struct {
@@ -603,6 +611,12 @@ func GetMaskedUser(user *User, isAdminOrSelf bool, errs ...error) (*User, error)
 		}
 	}
 
+	if user.MfaAccounts != nil {
+		for _, mfaAccount := range user.MfaAccounts {
+			mfaAccount.SecretKey = "***"
+		}
+	}
+
 	if user.TotpSecret != "" {
 		user.TotpSecret = ""
 	}
@@ -675,7 +689,7 @@ func UpdateUser(id string, user *User, columns []string, isAdmin bool) (bool, er
 		columns = []string{
 			"owner", "display_name", "avatar", "first_name", "last_name",
 			"location", "address", "country_code", "region", "language", "affiliation", "title", "id_card_type", "id_card", "homepage", "bio", "tag", "language", "gender", "birthday", "education", "score", "karma", "ranking", "signup_application",
-			"is_admin", "is_forbidden", "is_deleted", "hash", "is_default_avatar", "properties", "webauthnCredentials", "managedAccounts", "face_ids",
+			"is_admin", "is_forbidden", "is_deleted", "hash", "is_default_avatar", "properties", "webauthnCredentials", "managedAccounts", "face_ids", "mfaAccounts",
 			"signin_wrong_times", "last_signin_wrong_time", "groups", "access_key", "access_secret", "mfa_phone_enabled", "mfa_email_enabled",
 			"github", "google", "qq", "wechat", "facebook", "dingtalk", "weibo", "gitee", "linkedin", "wecom", "lark", "gitlab", "adfs",
 			"baidu", "alipay", "casdoor", "infoflow", "apple", "azuread", "azureadb2c", "slack", "steam", "bilibili", "okta", "douyin", "line", "amazon",
@@ -683,11 +697,11 @@ func UpdateUser(id string, user *User, columns []string, isAdmin bool) (bool, er
 			"eveonline", "fitbit", "gitea", "heroku", "influxcloud", "instagram", "intercom", "kakao", "lastfm", "mailru", "meetup",
 			"microsoftonline", "naver", "nextcloud", "onedrive", "oura", "patreon", "paypal", "salesforce", "shopify", "soundcloud",
 			"spotify", "strava", "stripe", "type", "tiktok", "tumblr", "twitch", "twitter", "typetalk", "uber", "vk", "wepay", "xero", "yahoo",
-			"yammer", "yandex", "zoom", "custom", "need_update_password",
+			"yammer", "yandex", "zoom", "custom", "need_update_password", "ip_whitelist",
 		}
 	}
 	if isAdmin {
-		columns = append(columns, "name", "id", "email", "phone", "country_code", "type")
+		columns = append(columns, "name", "id", "email", "phone", "country_code", "type", "balance")
 	}
 
 	columns = append(columns, "updated_time")
@@ -800,6 +814,10 @@ func AddUser(user *User) (bool, error) {
 
 	if user.PasswordType == "" || user.PasswordType == "plain" {
 		user.UpdateUserPassword(organization)
+	}
+
+	if user.CreatedTime == "" {
+		user.CreatedTime = util.GetCurrentTime()
 	}
 
 	err = user.UpdateUserHash()
@@ -937,7 +955,17 @@ func DeleteUser(user *User) (bool, error) {
 		return false, err
 	}
 
-	return deleteUser(user)
+	organization, err := GetOrganizationByUser(user)
+	if err != nil {
+		return false, err
+	}
+	if organization != nil && organization.EnableSoftDeletion {
+		user.IsDeleted = true
+		user.DeletedTime = util.GetCurrentTime()
+		return UpdateUser(user.GetId(), user, []string{"is_deleted", "deleted_time"}, false)
+	} else {
+		return deleteUser(user)
+	}
 }
 
 func GetUserInfo(user *User, scope string, aud string, host string) (*Userinfo, error) {
@@ -1125,7 +1153,7 @@ func (user *User) IsApplicationAdmin(application *Application) bool {
 		return false
 	}
 
-	return (user.Owner == application.Organization && user.IsAdmin) || user.IsGlobalAdmin()
+	return (user.Owner == application.Organization && user.IsAdmin) || user.IsGlobalAdmin() || (user.IsAdmin && application.IsShared)
 }
 
 func (user *User) IsGlobalAdmin() bool {
@@ -1156,4 +1184,14 @@ func GenerateIdForNewUser(application *Application) (string, error) {
 
 	res := strconv.Itoa(lastUserId + 1)
 	return res, nil
+}
+
+func UpdateUserBalance(owner string, name string, balance float64) error {
+	user, err := getUser(owner, name)
+	if err != nil {
+		return err
+	}
+	user.Balance += balance
+	_, err = UpdateUser(user.GetId(), user, []string{"balance"}, true)
+	return err
 }

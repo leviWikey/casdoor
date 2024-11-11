@@ -56,6 +56,8 @@ export const Countries = [
   {label: "Українська", key: "uk", country: "UA", alt: "Українська"},
   {label: "Қазақ", key: "kk", country: "KZ", alt: "Қазақ"},
   {label: "فارسی", key: "fa", country: "IR", alt: "فارسی"},
+  {label: "Čeština", key: "cs", country: "CZ", alt: "Čeština"},
+  {label: "Slovenčina", key: "sk", country: "SK", alt: "Slovenčina"},
 ];
 
 export function getThemeData(organization, application) {
@@ -228,6 +230,10 @@ export const OtherProviderInfo = {
       logo: `${StaticBaseUrl}/img/social_synology.png`,
       url: "https://www.synology.com/en-global/dsm/feature/file_sharing",
     },
+    "Casdoor": {
+      logo: `${StaticBaseUrl}/img/casdoor.png`,
+      url: "https://casdoor.org/docs/provider/storage/overview",
+    },
   },
   SAML: {
     "Aliyun IDaaS": {
@@ -246,6 +252,10 @@ export const OtherProviderInfo = {
   Payment: {
     "Dummy": {
       logo: `${StaticBaseUrl}/img/payment_paypal.png`,
+      url: "",
+    },
+    "Balance": {
+      logo: `${StaticBaseUrl}/img/payment_balance.svg`,
       url: "",
     },
     "Alipay": {
@@ -275,6 +285,14 @@ export const OtherProviderInfo = {
       url: "https://pkg.go.dev/github.com/dchest/captcha",
     },
     "reCAPTCHA": {
+      logo: `${StaticBaseUrl}/img/social_recaptcha.png`,
+      url: "https://www.google.com/recaptcha",
+    },
+    "reCAPTCHA v2": {
+      logo: `${StaticBaseUrl}/img/social_recaptcha.png`,
+      url: "https://www.google.com/recaptcha",
+    },
+    "reCAPTCHA v3": {
       logo: `${StaticBaseUrl}/img/social_recaptcha.png`,
       url: "https://www.google.com/recaptcha",
     },
@@ -401,6 +419,9 @@ export function getCountryCode(country) {
 }
 
 export function getCountryCodeData(countryCodes = phoneNumber.getCountries()) {
+  if (countryCodes?.includes("All")) {
+    countryCodes = phoneNumber.getCountries();
+  }
   return countryCodes?.map((countryCode) => {
     if (phoneNumber.isSupportedCountry(countryCode)) {
       const name = initCountries().getName(countryCode, getLanguage());
@@ -419,10 +440,10 @@ export function getCountryCodeOption(country) {
     <Option key={country.code} value={country.code} label={`+${country.phone}`} text={`${country.name}, ${country.code}, ${country.phone}`} >
       <div style={{display: "flex", justifyContent: "space-between", marginRight: "10px"}}>
         <div>
-          {getCountryImage(country)}
+          {country.code === "All" ? null : getCountryImage(country)}
           {`${country.name}`}
         </div>
-        {`+${country.phone}`}
+        {country.code === "All" ? null : `+${country.phone}`}
       </div>
     </Option>
   );
@@ -1057,6 +1078,7 @@ export function getProviderTypeOptions(category) {
         {id: "Qiniu Cloud Kodo", name: "Qiniu Cloud Kodo"},
         {id: "Google Cloud Storage", name: "Google Cloud Storage"},
         {id: "Synology", name: "Synology"},
+        {id: "Casdoor", name: "Casdoor"},
       ]
     );
   } else if (category === "SAML") {
@@ -1068,6 +1090,7 @@ export function getProviderTypeOptions(category) {
   } else if (category === "Payment") {
     return ([
       {id: "Dummy", name: "Dummy"},
+      {id: "Balance", name: "Balance"},
       {id: "Alipay", name: "Alipay"},
       {id: "WeChat Pay", name: "WeChat Pay"},
       {id: "PayPal", name: "PayPal"},
@@ -1077,7 +1100,8 @@ export function getProviderTypeOptions(category) {
   } else if (category === "Captcha") {
     return ([
       {id: "Default", name: "Default"},
-      {id: "reCAPTCHA", name: "reCAPTCHA"},
+      {id: "reCAPTCHA v2", name: "reCAPTCHA v2"},
+      {id: "reCAPTCHA v3", name: "reCAPTCHA v3"},
       {id: "hCaptcha", name: "hCaptcha"},
       {id: "Aliyun Captcha", name: "Aliyun Captcha"},
       {id: "GEETEST", name: "GEETEST"},
@@ -1148,7 +1172,7 @@ export function renderLogo(application) {
 
 function isSigninMethodEnabled(application, signinMethod) {
   if (application && application.signinMethods) {
-    return application.signinMethods.filter(item => item.name === signinMethod).length > 0;
+    return application.signinMethods.filter(item => item.name === signinMethod && item.rule !== "Hide-Password").length > 0;
   } else {
     return false;
   }
@@ -1365,6 +1389,13 @@ export function getApplicationName(application) {
   return `${application?.owner}/${application?.name}`;
 }
 
+export function getApplicationDisplayName(application) {
+  if (application.isShared) {
+    return `${application.name}(Shared)`;
+  }
+  return application.name;
+}
+
 export function getRandomName() {
   return Math.random().toString(36).slice(-6);
 }
@@ -1516,4 +1547,18 @@ export function getDefaultHtmlEmailContent() {
 </div>
 </body>
 </html>`;
+}
+
+export function getCurrencyText(product) {
+  if (product?.currency === "USD") {
+    return i18next.t("product:USD");
+  } else if (product?.currency === "CNY") {
+    return i18next.t("product:CNY");
+  } else {
+    return "(Unknown currency)";
+  }
+}
+
+export function isDarkTheme(themeAlgorithm) {
+  return themeAlgorithm && themeAlgorithm.includes("dark");
 }

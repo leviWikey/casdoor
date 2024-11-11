@@ -35,6 +35,8 @@ class OrganizationListPage extends BaseListPage {
       passwordType: "plain",
       PasswordSalt: "",
       passwordOptions: [],
+      passwordObfuscatorType: "Plain",
+      passwordObfuscatorKey: "",
       countryCodes: ["US"],
       defaultAvatar: `${Setting.StaticBaseUrl}/img/casbin.svg`,
       defaultApplication: "",
@@ -44,6 +46,7 @@ class OrganizationListPage extends BaseListPage {
       defaultPassword: "",
       enableSoftDeletion: false,
       isProfilePublic: true,
+      enableTour: true,
       accountItems: [
         {name: "Organization", visible: true, viewRule: "Public", modifyRule: "Admin"},
         {name: "ID", visible: true, viewRule: "Public", modifyRule: "Immutable"},
@@ -87,6 +90,7 @@ class OrganizationListPage extends BaseListPage {
         {Name: "Multi-factor authentication", Visible: true, ViewRule: "Self", ModifyRule: "Self"},
         {Name: "WebAuthn credentials", Visible: true, ViewRule: "Self", ModifyRule: "Self"},
         {Name: "Managed accounts", Visible: true, ViewRule: "Self", ModifyRule: "Self"},
+        {Name: "MFA accounts", Visible: true, ViewRule: "Self", ModifyRule: "Self"},
       ],
     };
   }
@@ -113,11 +117,11 @@ class OrganizationListPage extends BaseListPage {
       .then((res) => {
         if (res.status === "ok") {
           Setting.showMessage("success", i18next.t("general:Successfully deleted"));
-          this.setState({
-            data: Setting.deleteRow(this.state.data, i),
+          this.fetch({
             pagination: {
               ...this.state.pagination,
-              total: this.state.pagination.total - 1},
+              current: this.state.pagination.current > 1 && this.state.data.length === 1 ? this.state.pagination.current - 1 : this.state.pagination.current,
+            },
           });
           window.dispatchEvent(new Event("storageOrganizationsChanged"));
         } else {
